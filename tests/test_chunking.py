@@ -127,3 +127,97 @@ section b body.
 def test_chunk_dataclass_defaults() -> None:
     chunk = Chunk(text="hello", source_file="x.md")
     assert chunk.heading_path == []
+
+
+def test_h1_does_not_flush_when_h2_present() -> None:
+    """When the file has any H2, splits happen on H2; the H1 should NOT flush.
+
+    Verifies the intro paragraph after the H1 lands in the same chunk as the
+    first H2 section's content (or stays attached to the H1 chunk pre-flush).
+    Either way, we must not see two chunks ending at H1.
+    """
+    md = """# Top
+
+intro under h1.
+
+## Section A
+
+a body.
+
+### Sub A1
+
+sub-a-1 body.
+
+## Section B
+
+b body.
+"""
+    chunks = chunk_text(md, source_file="mixed.md")
+    # Heading path should always start with "Top" since H1 never flushes.
+    for c in chunks:
+        if c.heading_path:
+            assert c.heading_path[0] == "Top"
+    # Section B chunk exists and has H2 path of length 2 (Top > Section B).
+    section_b = [c for c in chunks if c.heading_path and c.heading_path[-1] == "Section B"]
+    assert len(section_b) == 1
+    assert section_b[0].heading_path == ["Top", "Section B"]
+
+
+def test_repeated_h2_name_produces_two_distinct_chunks() -> None:
+    """Two H2 sections with identical names must still produce two chunks."""
+    md = """# Top
+
+## Notes
+
+first notes body.
+
+## Other
+
+other body.
+
+## Notes
+
+second notes body.
+"""
+    chunks = chunk_text(md, source_file="dup.md")
+    notes_chunks = [c for c in chunks if c.heading_path and c.heading_path[-1] == "Notes"]
+    assert len(notes_chunks) == 2
+    bodies = " ".join(c.text for c in notes_chunks)
+    assert "first notes body" in bodies
+    assert "second notes body" in bodies
+
+
+def test_frontmatter_without_trailing_newline() -> None:
+    """Frontmatter ending without a final newline should still be stripped."""
+    md = "---\ntitle: t\n---\n# Body\n\ncontent here."
+    chunks = chunk_text(md, source_file="fm2.md")
+    joined = "\n".join(c.text for c in chunks)
+    assert "title: t" not in joined
+    assert "content here" in joined
+
+
+def test_single_sentence_no_heading() -> None:
+    """A single sentence with no heading should produce exactly one chunk."""
+    md = "just one short sentence."
+    chunks = chunk_text(md, source_file="tiny.md")
+    assert len(chunks) == 1
+    assert chunks[0].heading_path == []
+    assert "just one short sentence" in chunks[0].text
+
+
+def test_consecutive_headings_with_no_body() -> None:
+    """Consecutive headings with no paragraphs in between should not crash
+    and should still produce chunks tagged with the right heading paths."""
+    md = """# Top
+
+## A
+
+## B
+
+body under b.
+"""
+    chunks = chunk_text(md, source_file="consec.md")
+    last_paths = [c.heading_path[-1] for c in chunks if c.heading_path]
+    assert "B" in last_paths
+    b_chunks = [c for c in chunks if c.heading_path and c.heading_path[-1] == "B"]
+    assert any("body under b" in c.text for c in b_chunks)
