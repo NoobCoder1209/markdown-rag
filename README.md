@@ -110,9 +110,11 @@ hard-coded `sleep`.
 ingest deletes all points for each file before re-upserting it — so
 adding or removing a section never leaves orphan vectors behind.
 
-**Answer** (`src/rag/answer.py`) builds an `<context>...</context>` block
-with `[file > heading]` headers, sends it to Claude with a strict-grounding
-system prompt, streams the response token-by-token, then prints a deduped
+**Answer** (`src/rag/answer.py`) builds a context block delimited by
+distinctive `<<<RAG_CONTEXT_BEGIN>>>` / `<<<RAG_CONTEXT_END>>>` markers so
+corpus content can't accidentally close the boundary. Each excerpt is
+tagged `[file > heading]`. Claude receives a strict-grounding system
+prompt, streams the response token-by-token, and we then print a deduped
 `Sources:` footer.
 
 ## Customisation
@@ -124,13 +126,18 @@ python rag.py ingest --dir ~/notes/k8s
 python rag.py ask "what does that thing do again" --top-k 8
 ```
 
-Override the embedding model, Qdrant URL, or Claude model with env vars
-(see `src/rag/config.py`):
+Override defaults with env vars (see `src/rag/config.py`):
 
-```bash
-RAG_EMBED_MODEL=BAAI/bge-base-en-v1.5 python rag.py ingest
-RAG_ANTHROPIC_MODEL=claude-haiku-4-5 python rag.py ask "..."
-```
+| Env var | Default | What it does |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | (required) | Anthropic API key |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant endpoint |
+| `RAG_COLLECTION` | `markdown-rag` | Qdrant collection name |
+| `RAG_EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | Sentence-transformers model |
+| `RAG_ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Claude model |
+| `RAG_TOP_K` | `5` | Chunks retrieved per question |
+| `RAG_CORPUS_DIR` | `<repo>/corpus` | Where ingest reads markdown from |
+| `RAG_NAMESPACE` | (fixed UUID) | UUIDv5 namespace for chunk IDs |
 
 ## Development
 

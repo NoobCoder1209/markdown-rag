@@ -79,6 +79,7 @@ def wait() -> None:
     """Block until Qdrant is reachable. Used by `make demo`."""
     from .vector_store import VectorStore
 
+    typer.echo("waiting for qdrant...", err=True)
     try:
         VectorStore().wait_until_ready()
     except RuntimeError as exc:

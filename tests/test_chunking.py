@@ -250,3 +250,26 @@ def test_frontmatter_value_with_dash_dash_dash_in_string_is_safe() -> None:
     joined = "\n".join(c.text for c in chunks)
     assert "title:" not in joined
     assert "realcontent" in joined
+
+
+def test_gfm_table_does_not_crash_chunker() -> None:
+    """The GFM-like preset should accept tables (a common feature in real notes).
+    The chunker walks tokens it doesn't explicitly handle without exploding.
+    """
+    md = """# Notes
+
+## Compatibility
+
+| feature | supported |
+|---------|-----------|
+| tables  | yes       |
+| lists   | yes       |
+
+closing prose.
+"""
+    chunks = chunk_text(md, source_file="table.md")
+    # We don't assert table tokens are preserved verbatim — only that the
+    # chunker emits at least one chunk for the section and doesn't crash.
+    section_chunks = [c for c in chunks if c.heading_path and c.heading_path[-1] == "Compatibility"]
+    assert section_chunks
+    assert any("closing prose" in c.text for c in section_chunks)

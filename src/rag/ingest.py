@@ -12,13 +12,9 @@ from collections import defaultdict
 from pathlib import Path
 
 from .chunking import Chunk, chunk_file
-from .config import BATCH_SIZE, CORPUS_DIR
+from .config import BATCH_SIZE, CORPUS_DIR, RAG_NAMESPACE
 from .embeddings import Embedder
 from .vector_store import VectorStore
-
-# Fixed namespace UUID so chunk IDs are deterministic across runs.
-# Generated once with uuid.uuid4(); do NOT change — it would orphan existing points.
-RAG_NAMESPACE = uuid.UUID("6d4e9a3a-3b1f-4f1b-8b9a-6c1d2c5e7f10")
 
 
 def _chunk_id(chunk: Chunk, index: int) -> str:
