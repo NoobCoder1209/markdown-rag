@@ -46,12 +46,60 @@ def test_wait_until_ready_raises_after_max_attempts() -> None:
 
 def test_ensure_collection_is_idempotent() -> None:
     store, fake = _make_store()
-    # First call: collection does not exist; second call: it does.
+    # First call: collection does not exist; second call: it does and dim matches.
     fake.collection_exists.side_effect = [False, True]
+    fake.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(params=SimpleNamespace(vectors=SimpleNamespace(size=4)))
+    )
     store.ensure_collection(dim=4)
     store.ensure_collection(dim=4)
     # create_collection only called the first time.
     assert fake.create_collection.call_count == 1
+
+
+def test_ensure_collection_raises_on_dim_mismatch() -> None:
+    store, fake = _make_store()
+    fake.collection_exists.return_value = True
+    fake.get_collection.return_value = SimpleNamespace(
+        config=SimpleNamespace(params=SimpleNamespace(vectors=SimpleNamespace(size=384)))
+    )
+    with pytest.raises(RuntimeError, match="dim 384"):
+        store.ensure_collection(dim=768)
+
+
+def test_ensure_collection_tolerates_unreadable_existing_dim() -> None:
+    """If get_collection fails, fall back to skipping the dim check rather than
+    masking the upstream error with a confusing dim-mismatch message."""
+    store, fake = _make_store()
+    fake.collection_exists.return_value = True
+    fake.get_collection.side_effect = UnexpectedResponse(
+        status_code=500, reason_phrase="oops", content=b"boom", headers=None
+    )
+    # Should not raise — we treat the dim as unknown.
+    store.ensure_collection(dim=384)
+
+
+def test_delete_by_source_file_filters_correctly() -> None:
+    store, fake = _make_store()
+    fake.collection_exists.return_value = True
+    store.delete_by_source_file("10-network-policies.md")
+    fake.delete.assert_called_once()
+    kwargs = fake.delete.call_args.kwargs
+    assert kwargs["collection_name"] == "test-col"
+    assert kwargs["wait"] is True
+    selector = kwargs["points_selector"]
+    # Drill into the FilterSelector → Filter → FieldCondition → MatchValue.
+    must = selector.filter.must
+    assert len(must) == 1
+    assert must[0].key == "source_file"
+    assert must[0].match.value == "10-network-policies.md"
+
+
+def test_delete_by_source_file_noop_when_collection_missing() -> None:
+    store, fake = _make_store()
+    fake.collection_exists.return_value = False
+    store.delete_by_source_file("anything.md")
+    fake.delete.assert_not_called()
 
 
 def test_ensure_payload_index_swallows_unexpected_response() -> None:

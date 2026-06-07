@@ -128,3 +128,45 @@ def test_ingest_returns_zeroes_for_empty_corpus(tmp_path: Path) -> None:
     assert result == {"files": 0, "chunks": 0, "upserted": 0}
     embedder_cls.assert_not_called()
     store_cls.assert_not_called()
+
+
+def test_ingest_deletes_each_source_file_before_upsert(tmp_path: Path) -> None:
+    """For every file in the corpus, ingest must call delete_by_source_file
+    before the upsert for that file. This guarantees that section-level edits
+    (insertions, removals) never leave orphan vectors behind.
+    """
+    (tmp_path / "alpha.md").write_text("# A\n\nalpha body.\n", encoding="utf-8")
+    (tmp_path / "beta.md").write_text("# B\n\nbeta body.\n", encoding="utf-8")
+
+    fake_embedder = MagicMock()
+    fake_embedder.dim = 4
+    fake_embedder.encode.side_effect = lambda texts: [[0.0, 0.0, 0.0, 0.0] for _ in texts]
+
+    fake_store = MagicMock()
+    fake_store.upsert.side_effect = lambda rows, batch_size=32: len(rows)
+
+    # Record the order of delete/upsert calls so we can assert delete-then-upsert.
+    call_log: list[tuple[str, str]] = []
+    fake_store.delete_by_source_file.side_effect = lambda sf: call_log.append(("delete", sf))
+    original_upsert = fake_store.upsert.side_effect
+
+    def upsert_with_log(rows, batch_size=32):  # noqa: ANN001, ANN202
+        sources = {r["source_file"] for r in rows}
+        for s in sources:
+            call_log.append(("upsert", s))
+        return original_upsert(rows, batch_size)
+
+    fake_store.upsert.side_effect = upsert_with_log
+
+    with (
+        patch("rag.ingest.Embedder", return_value=fake_embedder),
+        patch("rag.ingest.VectorStore", return_value=fake_store),
+    ):
+        result = ingest(tmp_path)
+
+    assert result["files"] == 2
+    # Every file must see (delete, file) before (upsert, file).
+    for sf in ("alpha.md", "beta.md"):
+        delete_idx = call_log.index(("delete", sf))
+        upsert_idx = call_log.index(("upsert", sf))
+        assert delete_idx < upsert_idx, f"upsert before delete for {sf}: {call_log}"

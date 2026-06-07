@@ -25,10 +25,12 @@ class Embedder:
     def encode(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
+        # No client-side normalization: Qdrant's Distance.COSINE normalizes
+        # vectors server-side, so pre-normalizing here would be redundant
+        # work without changing retrieval scores.
         vectors = self._model.encode(
             texts,
             show_progress_bar=False,
             convert_to_numpy=True,
-            normalize_embeddings=True,
         )
         return vectors.tolist()

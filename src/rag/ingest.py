@@ -1,8 +1,14 @@
-"""Ingest a corpus directory into Qdrant: walk → chunk → embed → upsert."""
+"""Ingest a corpus directory into Qdrant: walk → chunk → embed → upsert.
+
+Per-file delete-then-upsert keeps the collection in sync with on-disk
+content. If a section is added or removed mid-file, all old points for
+that file are evicted before the fresh chunks land — no orphans.
+"""
 
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 from pathlib import Path
 
 from .chunking import Chunk, chunk_file
@@ -29,6 +35,13 @@ def _walk_corpus(root: Path) -> list[Chunk]:
     return chunks
 
 
+def _group_by_file(chunks: list[Chunk]) -> dict[str, list[Chunk]]:
+    grouped: dict[str, list[Chunk]] = defaultdict(list)
+    for chunk in chunks:
+        grouped[chunk.source_file].append(chunk)
+    return grouped
+
+
 def ingest(corpus_dir: str | Path = CORPUS_DIR) -> dict[str, int]:
     root = Path(corpus_dir)
     chunks = _walk_corpus(root)
@@ -41,15 +54,17 @@ def ingest(corpus_dir: str | Path = CORPUS_DIR) -> dict[str, int]:
     store.ensure_collection(dim=embedder.dim)
     store.ensure_payload_index("source_file")
 
-    rows: list[dict] = []
-    per_file_index: dict[str, int] = {}
-    texts = [c.text for c in chunks]
-    vectors = _encode_in_batches(embedder, texts, BATCH_SIZE)
+    grouped = _group_by_file(chunks)
+    total_upserted = 0
 
-    for chunk, vector in zip(chunks, vectors, strict=True):
-        idx = per_file_index.get(chunk.source_file, 0)
-        per_file_index[chunk.source_file] = idx + 1
-        rows.append(
+    for source_file, file_chunks in grouped.items():
+        # Evict any prior points for this file so re-ingest after edits
+        # never leaves orphans. Cheap thanks to the keyword payload index.
+        store.delete_by_source_file(source_file)
+
+        texts = [c.text for c in file_chunks]
+        vectors = _encode_in_batches(embedder, texts, BATCH_SIZE)
+        rows = [
             {
                 "id": _chunk_id(chunk, idx),
                 "vector": vector,
@@ -57,11 +72,11 @@ def ingest(corpus_dir: str | Path = CORPUS_DIR) -> dict[str, int]:
                 "source_file": chunk.source_file,
                 "heading_path": chunk.heading_path,
             }
-        )
+            for idx, (chunk, vector) in enumerate(zip(file_chunks, vectors, strict=True))
+        ]
+        total_upserted += store.upsert(rows, batch_size=BATCH_SIZE)
 
-    upserted = store.upsert(rows, batch_size=BATCH_SIZE)
-    files = len({c.source_file for c in chunks})
-    return {"files": files, "chunks": len(chunks), "upserted": upserted}
+    return {"files": len(grouped), "chunks": len(chunks), "upserted": total_upserted}
 
 
 def _encode_in_batches(embedder: Embedder, texts: list[str], batch_size: int) -> list[list[float]]:

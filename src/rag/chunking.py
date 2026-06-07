@@ -27,13 +27,26 @@ class Chunk:
 
 
 def _strip_frontmatter(src: str) -> str:
-    """Remove a leading YAML/TOML frontmatter block delimited by --- ... ---."""
-    if not src.startswith("---\n"):
+    """Remove a leading YAML/TOML frontmatter block.
+
+    Recognizes a `---` opener on the first line (LF or CRLF) and the next
+    standalone `---` line as the closer. Handles CRLF, no trailing
+    newline, and empty frontmatter (`---` immediately followed by `---`).
+    Frontmatter values that contain `---` inside a string don't fool this
+    because we match standalone delimiter lines, not substrings.
+    """
+    # Normalize for line-based scanning while preserving original content
+    # for the slice we hand back.
+    lines = src.splitlines(keepends=True)
+    if not lines:
         return src
-    end = src.find("\n---", 4)
-    if end == -1:
+    first = lines[0].rstrip("\r\n")
+    if first != "---":
         return src
-    return src[end + 4 :].lstrip("\n")
+    for idx in range(1, len(lines)):
+        if lines[idx].rstrip("\r\n") == "---":
+            return "".join(lines[idx + 1 :]).lstrip("\n").lstrip("\r\n")
+    return src  # no closer found — leave content alone
 
 
 def _approx_tokens(text: str) -> int:
@@ -84,8 +97,11 @@ def _walk_tokens(tokens, source_file: str, split_tag: str) -> list[Chunk]:
 def _size_split(chunks: list[Chunk]) -> list[Chunk]:
     """Secondary pass: split chunks above WORD_CAP on sentence boundaries.
 
-    Skip any chunk that contains a fenced code block to keep code atomic.
-    Carry one sentence of overlap from the previous slice into the next.
+    Skip any chunk that contains a fenced code block to keep code atomic —
+    even if the resulting chunk exceeds the soft cap. A partial YAML or
+    kubectl snippet is worse for retrieval than a slightly oversized one.
+    Carry one sentence of overlap from the previous slice into the next so
+    cross-boundary phrases stay matchable.
     """
     out: list[Chunk] = []
     for ch in chunks:

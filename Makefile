@@ -12,16 +12,16 @@ down:
 	docker compose down
 
 wait:
-	python -m rag.cli wait
+	python rag.py wait
 
 ingest:
-	python -m rag.cli ingest
+	python rag.py ingest
 
 ask:
-	python -m rag.cli ask "$(Q)"
+	python rag.py ask "$(Q)"
 
 reset:
-	python -m rag.cli reset
+	python rag.py reset
 
 demo: up wait
 	@$(MAKE) ingest

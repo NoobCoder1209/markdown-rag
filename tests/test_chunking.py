@@ -221,3 +221,32 @@ body under b.
     assert "B" in last_paths
     b_chunks = [c for c in chunks if c.heading_path and c.heading_path[-1] == "B"]
     assert any("body under b" in c.text for c in b_chunks)
+
+
+def test_frontmatter_with_crlf_line_endings() -> None:
+    """Frontmatter authored on Windows (CRLF) should still be stripped."""
+    md = "---\r\ntitle: t\r\n---\r\n# Body\r\n\r\ncontent here."
+    chunks = chunk_text(md, source_file="crlf.md")
+    joined = "\n".join(c.text for c in chunks)
+    assert "title: t" not in joined
+    assert "content here" in joined
+
+
+def test_empty_frontmatter_is_stripped() -> None:
+    """An empty `---\\n---` block at file start should be removed cleanly."""
+    md = "---\n---\n# Body\n\ncontent here."
+    chunks = chunk_text(md, source_file="empty_fm.md")
+    joined = "\n".join(c.text for c in chunks)
+    assert "---" not in joined
+    assert "content here" in joined
+
+
+def test_frontmatter_value_with_dash_dash_dash_in_string_is_safe() -> None:
+    """Frontmatter values containing '---' inside a YAML string should not
+    fool the parser into closing early. Only standalone --- lines count.
+    """
+    md = "---\ntitle: contains --- inside text\nfoo: bar\n---\n# Body\n\nrealcontent."
+    chunks = chunk_text(md, source_file="tricky_fm.md")
+    joined = "\n".join(c.text for c in chunks)
+    assert "title:" not in joined
+    assert "realcontent" in joined

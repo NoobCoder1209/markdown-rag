@@ -52,7 +52,7 @@ make demo
 
 `make demo` brings up Qdrant in Docker, waits for it to be ready, ingests
 the sample corpus (12 Kubernetes ops notes), and asks the demo question.
-First run downloads the embedding model (~133 MB) into the Hugging Face
+First run downloads the embedding model (~130 MB) into the Hugging Face
 cache.
 
 You can also run the steps individually:
@@ -94,8 +94,8 @@ atomic, and applies a soft size cap with one-sentence overlap on
 size-driven splits.
 
 **Embeddings** (`src/rag/embeddings.py`) use `BAAI/bge-small-en-v1.5`
-— MIT-licensed, 384-dim, retrieval-trained, normalized so cosine
-similarity is just dot product.
+— MIT-licensed, 384-dim, retrieval-trained. Qdrant's `Distance.COSINE`
+normalizes server-side, so the client just hands over the raw vectors.
 
 **Vector store** (`src/rag/vector_store.py`) wraps `qdrant-client`'s
 sync API. `ensure_collection` is idempotent. A keyword payload index on
@@ -106,9 +106,9 @@ backoff so `make demo` survives Docker startup latency without a
 hard-coded `sleep`.
 
 **Stable chunk IDs** are deterministic UUIDv5s of
-`(source_file, heading_path, chunk_index)` — re-ingest overwrites in
-place rather than duplicating. Run `make reset && make ingest` after
-structural changes (added/removed sections).
+`(source_file, heading_path, chunk_index)`. To stay in sync with edits,
+ingest deletes all points for each file before re-upserting it — so
+adding or removing a section never leaves orphan vectors behind.
 
 **Answer** (`src/rag/answer.py`) builds an `<context>...</context>` block
 with `[file > heading]` headers, sends it to Claude with a strict-grounding

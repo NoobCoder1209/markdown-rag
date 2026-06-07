@@ -64,10 +64,59 @@ class VectorStore:
 
     def ensure_collection(self, dim: int) -> None:
         if self._client.collection_exists(self.collection):
+            existing_dim = self._existing_dim()
+            if existing_dim is not None and existing_dim != dim:
+                raise RuntimeError(
+                    f"Existing collection '{self.collection}' uses dim {existing_dim}; "
+                    f"current model produces dim {dim}. "
+                    "Run `make reset && make ingest` (or change RAG_EMBED_MODEL back)."
+                )
             return
         self._client.create_collection(
             collection_name=self.collection,
             vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+        )
+
+    def _existing_dim(self) -> int | None:
+        """Read the configured vector size of an existing collection, if available."""
+        try:
+            info = self._client.get_collection(self.collection)
+        except (ApiException, UnexpectedResponse):
+            return None
+        vectors = getattr(info.config.params, "vectors", None)
+        if vectors is None:
+            return None
+        # `vectors` is either a single VectorParams (unnamed) or a dict (named vectors).
+        size = getattr(vectors, "size", None)
+        if size is not None:
+            return int(size)
+        if isinstance(vectors, dict) and vectors:
+            first = next(iter(vectors.values()))
+            return int(getattr(first, "size", 0)) or None
+        return None
+
+    def delete_by_source_file(self, source_file: str) -> None:
+        """Remove all points belonging to one source file. Used by ingest to
+        keep the collection in sync with on-disk content (no orphaned points
+        when sections are added or removed mid-file).
+        """
+        from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+
+        if not self._client.collection_exists(self.collection):
+            return
+        self._client.delete(
+            collection_name=self.collection,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="source_file",
+                            match=MatchValue(value=source_file),
+                        )
+                    ]
+                )
+            ),
+            wait=True,
         )
 
     def ensure_payload_index(self, field_name: str = "source_file") -> None:

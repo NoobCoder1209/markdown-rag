@@ -31,3 +31,5 @@ jobs:
         run: pytest -q
         env:
           ANTHROPIC_API_KEY: dummy-not-used-tests-mock-it
+      - name: CLI smoke (catches packaging regressions)
+        run: python rag.py --help
