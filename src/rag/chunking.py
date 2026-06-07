@@ -141,7 +141,10 @@ def _size_split(chunks: list[Chunk]) -> list[Chunk]:
 def chunk_text(text: str, source_file: str) -> list[Chunk]:
     """Chunk a markdown string. `source_file` is stored on every chunk."""
     src = _strip_frontmatter(text)
-    md = MarkdownIt("commonmark")
+    # GFM-like preset recognizes tables and strikethrough — common in
+    # real-world notes (e.g. when users point this at their own folder).
+    # Linkify is disabled to avoid pulling in linkify-it-py as a dependency.
+    md = MarkdownIt("gfm-like").disable("linkify")
     tokens = md.parse(src)
     has_h2 = any(t.type == "heading_open" and t.tag == "h2" for t in tokens)
     split_tag = "h2" if has_h2 else "h1"

@@ -87,10 +87,11 @@ def test_ask_with_empty_corpus_errors_friendly() -> None:
 
 
 def test_build_user_message_format() -> None:
-    from rag.answer import build_user_message
+    from rag.answer import CONTEXT_CLOSE, CONTEXT_OPEN, build_user_message
 
     msg = build_user_message(_fake_chunks(), "How do I lock down a namespace?")
-    assert msg.startswith("<context>")
+    assert msg.startswith(CONTEXT_OPEN)
+    assert CONTEXT_CLOSE in msg
     assert msg.rstrip().endswith("Question: How do I lock down a namespace?")
     assert "[10-network-policies.md > Network Policies > A default-deny baseline]" in msg
     assert "---" in msg
