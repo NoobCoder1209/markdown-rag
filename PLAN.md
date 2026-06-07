@@ -71,6 +71,16 @@ cost. Pattern 3 — README has screenshots/GIF only, no hosted demo.
 5. **Sample corpus** of 8–12 markdown files on a coherent topic.
 6. README with full flow diagram, ingest screenshot, ask screenshot, "Skills demonstrated" section.
 
+## Production hygiene (must apply, not optional)
+
+Inherits the master plan's "Production hygiene checklist." Repo-specific application:
+
+- **Env vars at runtime.** `.env.example` ships placeholders; `.env*` gitignored; `config.py` raises a clean exit-with-message if `ANTHROPIC_API_KEY` is missing.
+- **Qdrant connection retry with exponential backoff.** `vector_store.py` connects via a small retry loop (start 0.5s, factor 2, max 8 attempts) so `make demo` survives Docker startup latency without the README needing a `sleep`. Replace the `make demo` `sleep 3` with a real readiness check.
+- **Payload index on `source_file`.** When creating the Qdrant collection, also create a payload index on `source_file` (keyword type) so future "filter by file" queries are fast. Demonstrates query-pattern thinking.
+- **Global try/catch in CLI entrypoint.** `cli.py` wraps each command in try/except. On error: print one short, actionable line to stderr (e.g. `"Cannot reach Qdrant at http://localhost:6333. Run \`make up\` first."`) and exit non-zero. **No tracebacks** unless `--verbose` (deferred).
+- **Indexes on high-traffic queries.** Documented above as the payload index. Mention briefly in README's "How it works" so reviewers see the design choice.
+
 ## Out of scope
 
 - No web UI, no API server.
@@ -252,6 +262,9 @@ before flipping public.
 - [ ] CI green on Python 3.11
 - [ ] Topics + description set
 - [ ] At least 8 corpus files, all attributed
+- [ ] Missing API key produces a one-line friendly error, not a traceback
+- [ ] Qdrant unreachable produces a friendly error pointing to `make up`
+- [ ] Payload index on `source_file` exists after first ingest (verifiable via `qdrant-client` collection info)
 
 ## Stretch (defer)
 
