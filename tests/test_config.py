@@ -22,12 +22,14 @@ def _restore_env():
     yield
     os.environ.clear()
     os.environ.update(saved)
+    # Reload so module-level constants reflect the restored env, otherwise
+    # later tests can observe stale values from an earlier override.
+    _reload_config()
 
 
 def test_corpus_dir_defaults_to_repo_root_corpus(monkeypatch) -> None:
     monkeypatch.delenv("RAG_CORPUS_DIR", raising=False)
     config = _reload_config()
-    # Default should resolve to an absolute path that ends in '/corpus'.
     assert Path(config.CORPUS_DIR).is_absolute()
     assert Path(config.CORPUS_DIR).name == "corpus"
 
@@ -53,7 +55,11 @@ def test_rag_namespace_env_override(monkeypatch) -> None:
     assert str(config.RAG_NAMESPACE) == custom
 
 
-def test_rag_namespace_invalid_raises_clean_error(monkeypatch) -> None:
+def test_rag_namespace_invalid_exits_with_friendly_error(monkeypatch, capsys) -> None:
     monkeypatch.setenv("RAG_NAMESPACE", "not-a-uuid")
-    with pytest.raises(ValueError):
+    with pytest.raises(SystemExit) as excinfo:
         _reload_config()
+    assert excinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert "RAG_NAMESPACE" in captured.err
+    assert "not-a-uuid" in captured.err

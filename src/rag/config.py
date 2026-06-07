@@ -26,13 +26,23 @@ CORPUS_DIR: str = os.environ.get("RAG_CORPUS_DIR", str(_REPO_ROOT / "corpus"))
 # overwrites in place; users running multiple independent collections can
 # override to keep their chunk IDs distinct.
 _DEFAULT_NAMESPACE = "6d4e9a3a-3b1f-4f1b-8b9a-6c1d2c5e7f10"
-RAG_NAMESPACE: uuid.UUID = uuid.UUID(os.environ.get("RAG_NAMESPACE", _DEFAULT_NAMESPACE))
+
+
+def _parse_namespace(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        die(f"RAG_NAMESPACE must be a valid UUID, got: {value!r}")
+        raise  # unreachable — die() exits, but keep the type-checker happy
 
 
 def die(message: str, code: int = 1) -> None:
     """Print a one-line friendly error to stderr and exit non-zero."""
     print(f"error: {message}", file=sys.stderr)
     sys.exit(code)
+
+
+RAG_NAMESPACE: uuid.UUID = _parse_namespace(os.environ.get("RAG_NAMESPACE", _DEFAULT_NAMESPACE))
 
 
 def require_api_key() -> str:

@@ -137,7 +137,7 @@ Override defaults with env vars (see `src/rag/config.py`):
 | `RAG_ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Claude model |
 | `RAG_TOP_K` | `5` | Chunks retrieved per question |
 | `RAG_CORPUS_DIR` | `<repo>/corpus` | Where ingest reads markdown from |
-| `RAG_NAMESPACE` | (fixed UUID) | UUIDv5 namespace for chunk IDs |
+| `RAG_NAMESPACE` | `6d4e9a3a-3b1f-4f1b-8b9a-6c1d2c5e7f10` | UUIDv5 namespace for chunk IDs |
 
 ## Development
 
