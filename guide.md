@@ -4,11 +4,10 @@ This is the "I have never touched this repo, walk me through it" document.
 For the user-facing pitch, see [`README.md`](./README.md). For the build
 plan that produced this repo, see [`PLAN.md`](./PLAN.md).
 
-> **Last verified:** 2026-06-09 against commit `9574b89` (plus the
-> embeddings/Qdrant warning fixes on this branch). On macOS (Apple
-> Silicon, Docker Desktop 29.5.2, Python 3.11.15 in `.venv`), I ran
-> `make up && make wait && make ingest` end-to-end. Result:
-> `points=68 dim=384 distance=Cosine status=green` with the
+> **Last verified:** 2026-06-09 on `feature/guide-and-demo-verification`.
+> On macOS (Apple Silicon, Docker Desktop 29.5.2, Python 3.11.15 in
+> `.venv`), I ran `make up && make wait && make ingest` end-to-end.
+> Result: `points=68 dim=384 distance=Cosine status=green` with the
 > `source_file` keyword payload index populated for all 68 points. The
 > live `make ask` step needs an Anthropic API key and was **not** run
 > by the build session — see "Demo verification status" below.
@@ -53,9 +52,12 @@ $EDITOR .env       # set ANTHROPIC_API_KEY=sk-ant-...
 
 ### The demo (one command)
 
-After setup, the whole demo is one Make target:
+After setup, the whole demo is one Make target — but **load your `.env`
+into the shell first** or the `ask` step at the end will fail after
+ingest already ran:
 
 ```bash
+set -a; source .env; set +a   # exports ANTHROPIC_API_KEY into this shell
 make demo
 ```
 
@@ -207,7 +209,10 @@ What each field tells you:
 - **`status=green`** — Qdrant's own health.
 - **`payload_index source_file=keyword`** — the keyword index that
   makes the per-file delete-then-upsert in `ingest.py` fast. If this
-  line is missing, `ensure_payload_index` did not run.
+  line is missing entirely (no `payload_index ...` line at all), the
+  index was never created. If the count in parentheses is missing or
+  zero, the index exists but the points haven't been registered against
+  it yet — that can happen briefly right after a fresh ingest.
 
 After `make ask Q="..."`, expected output is:
 
@@ -237,7 +242,7 @@ make ask
 
 If your `.env` does not exist yet, create it from `.env.example` first.
 
-### `error: Qdrant unreachable at http://localhost:6333 after 8 attempts. Run \`make up\` first.`
+### "Qdrant unreachable at http://localhost:6333 after 8 attempts"
 
 Qdrant is not running. Either `docker compose` is not running at all, or
 the container died.
@@ -248,7 +253,7 @@ make up
 docker logs markdown-rag-qdrant --tail 50       # if it crashes immediately
 ```
 
-### `error: no chunks found — has the corpus been ingested? Run \`make ingest\` first.`
+### "no chunks found — has the corpus been ingested?"
 
 The collection exists but has zero points. Run `make ingest`. If ingest
 completes but still no points, run the `_check_collection.py` helper —

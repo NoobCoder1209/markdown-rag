@@ -1,6 +1,11 @@
 # vhs tape: ingest-only demo (no API key required)
 # Run with: vhs docs/screenshots/ingest.tape
 # Output:    docs/screenshots/ingest.gif
+#
+# Assumes ~/git/portfolio/markdown-rag is cloned with .venv set up
+# (python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt)
+# and that the embedding model is already cached at ~/.cache/huggingface
+# (the first ingest downloads ~130 MB which won't fit in the sleep budget below).
 
 Output docs/screenshots/ingest.gif
 
@@ -38,7 +43,7 @@ Enter
 Sleep 600ms
 Type "make ingest"
 Enter
-Sleep 16s
+Sleep 20s
 
 Type "# 4. Verify the collection in Qdrant"
 Enter
@@ -47,6 +52,6 @@ Type "python docs/screenshots/_check_collection.py"
 Enter
 Sleep 3s
 
-Type "# 68 chunks, 384-dim cosine, payload index on source_file ✓"
+Type "# 68 chunks, 384-dim cosine, payload index on source_file [ok]"
 Enter
 Sleep 3s

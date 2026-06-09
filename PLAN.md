@@ -1,5 +1,11 @@
 # `markdown-rag` — Execution Plan
 
+> **This is a historical document.** The repo has been built. The
+> business decisions below were resolved as: corpus topic = Kubernetes
+> operations notes, corpus size = 12 files, citations = at the end of
+> the streamed answer. For how to actually run and use the project,
+> see [`README.md`](./README.md) and [`guide.md`](./guide.md).
+
 ## How to use this plan
 
 You are the build session for this repo. Read this whole file before doing anything else, then start executing immediately — no kickoff prompt needed.
