@@ -1,6 +1,6 @@
 services:
   qdrant:
-    image: qdrant/qdrant:v1.12.5
+    image: qdrant/qdrant:v1.18.1
     container_name: markdown-rag-qdrant
     ports:
       - "6333:6333"

@@ -4,6 +4,12 @@ Local retrieval-augmented generation over a folder of markdown files —
 in one command. Qdrant for vector storage, sentence-transformers for
 embeddings, Anthropic Claude for the answer.
 
+![demo](docs/screenshots/ingest.gif)
+
+> The GIF above is the autonomous part of `make demo` — Qdrant up,
+> ingest, verify. The streamed Claude answer needs your `ANTHROPIC_API_KEY`
+> in `.env`; see [`guide.md`](./guide.md) for the full walkthrough.
+
 ```
 $ make demo
 [ingests 12 markdown files into a local Qdrant]
