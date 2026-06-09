@@ -16,7 +16,13 @@ class Embedder:
         from sentence_transformers import SentenceTransformer
 
         self._model = SentenceTransformer(model_name, device="cpu")
-        self._dim = int(self._model.get_sentence_embedding_dimension())
+        # `get_embedding_dimension` is the post-3.x name; some older versions
+        # only ship `get_sentence_embedding_dimension`. Branch on hasattr so
+        # whichever method is missing is never referenced.
+        if hasattr(self._model, "get_embedding_dimension"):
+            self._dim = int(self._model.get_embedding_dimension())
+        else:
+            self._dim = int(self._model.get_sentence_embedding_dimension())
 
     @property
     def dim(self) -> int:

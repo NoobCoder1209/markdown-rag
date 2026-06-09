@@ -4,6 +4,14 @@ Local retrieval-augmented generation over a folder of markdown files —
 in one command. Qdrant for vector storage, sentence-transformers for
 embeddings, Anthropic Claude for the answer.
 
+![ingest demo](docs/screenshots/ingest.gif)
+
+> The GIF above shows the **autonomous** part of `make demo` — Qdrant
+> up, wait, ingest, verify. Below is what the **full** demo looks like
+> once you add your `ANTHROPIC_API_KEY` to `.env`. See
+> [`guide.md`](./guide.md) for the end-to-end walkthrough including
+> prerequisites, expected output, and common failure modes.
+
 ```
 $ make demo
 [ingests 12 markdown files into a local Qdrant]
@@ -136,6 +144,8 @@ Override defaults with env vars (see `src/rag/config.py`):
 | `RAG_EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | Sentence-transformers model |
 | `RAG_ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Claude model |
 | `RAG_TOP_K` | `5` | Chunks retrieved per question |
+| `RAG_BATCH_SIZE` | `32` | Embedding + upsert batch size |
+| `RAG_MAX_TOKENS` | `1024` | Max tokens in Claude's reply |
 | `RAG_CORPUS_DIR` | `<repo>/corpus` | Where ingest reads markdown from |
 | `RAG_NAMESPACE` | `6d4e9a3a-3b1f-4f1b-8b9a-6c1d2c5e7f10` | UUIDv5 namespace for chunk IDs |
 
